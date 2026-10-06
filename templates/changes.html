@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <div>
+    <h2>Show Changes</h2>
+    <p class="text-secondary mb-0">Select a table to inspect row-level differences.</p>
+  </div>
+  <a class="btn btn-outline-secondary" href="{{ url_for('dashboard', table_filter=table_filter, table_name_filter=table_name_filter, page=page) }}">Back to Dashboard</a>
+</div>
+
+<div class="row g-3">
+  <div class="col-lg-3">
+    <div class="card shadow-sm">
+      <div class="card-header fw-bold">Tables</div>
+      <div class="list-group list-group-flush">
+        {% for table in tables %}
+          <a class="list-group-item list-group-item-action {% if table == selected %}active{% endif %}"
+             href="{{ url_for('changes', table=table) }}">{{ table }}</a>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-9">
+    {% if detail %}
+      <div class="card shadow-sm">
+        <div class="card-header d-flex justify-content-between">
+          <strong>{{ selected }}</strong>
+          <span>{{ detail.message }}</span>
+        </div>
+        <div class="table-responsive changes-grid">
+          {% if detail.rows %}
+          <table class="table table-sm table-bordered mb-0">
+            <thead class="table-dark">
+              <tr>
+                <th>Status</th>
+                {% for c in detail.columns %}<th>{{ c }}</th>{% endfor %}
+              </tr>
+            </thead>
+            <tbody>
+            {% for row in detail.rows %}
+              <tr class="row-{{ row.status }}">
+                <td><span class="badge badge-status status-{{ row.status }}">{{ row.status }}</span></td>
+                {% for value in row['values'] %}
+                  {% set col = detail.columns[loop.index0] %}
+                  <td class="{% if col in row.changed %}cell-changed{% endif %}">
+                    {{ value if value is not none else 'NULL' }}
+                  </td>
+                {% endfor %}
+              </tr>
+            {% endfor %}
+            </tbody>
+          </table>
+          {% else %}
+            <div class="p-4 text-secondary">{{ detail.message }}</div>
+          {% endif %}
+        </div>
+      </div>
+    {% else %}
+      <div class="card shadow-sm p-5 text-center text-secondary">
+        Select a table from the list.
+      </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

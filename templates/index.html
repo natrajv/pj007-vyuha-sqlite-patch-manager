@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-xl-8">
+    <div class="card shadow-sm">
+      <div class="card-body p-4">
+        <h2 class="mb-1">Compare SQLite Databases</h2>
+        <p class="text-secondary mb-4">
+          Upload a Patch and Base database. The Base database is used as the merge base.
+        </p>
+
+        <form method="post" action="{{ url_for('upload') }}" enctype="multipart/form-data">
+          <div class="mb-4">
+            <label class="form-label fw-semibold">Patch SQLite database</label>
+            <input class="form-control" type="file" name="source_db" accept=".db,.sqlite,.sqlite3" required>
+          </div>
+
+          <div class="mb-4">
+            <label class="form-label fw-semibold">Base SQLite database</label>
+            <input class="form-control" type="file" name="target_db" accept=".db,.sqlite,.sqlite3" required>
+          </div>
+
+          <button class="btn btn-primary btn-lg w-100">Compare Databases</button>
+        </form>
+
+        <div class="alert alert-info mt-4 mb-0">
+          <strong>Patch model:</strong> Patch SQLite database contains the proposed changes;
+          Base SQLite database is copied first and then patched according to Patch Options.
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

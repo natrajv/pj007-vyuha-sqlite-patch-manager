@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ app_name }} {{ app_version }}</title>
+  <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='img/vyuha-patch.svg') }}">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
+</head>
+<body>
+<nav class="navbar navbar-dark bg-dark app-navbar">
+  <div class="container-fluid">
+    <a class="navbar-brand d-flex align-items-center gap-2 fw-bold" href="{{ url_for('index') }}">
+      <img src="{{ url_for('static', filename='img/vyuha-patch.svg') }}" class="app-icon" alt="">
+      <span>{{ app_name }}</span>
+      <small class="app-version">{{ app_version }}</small>
+    </a>
+    <div class="d-flex align-items-center gap-3">
+      <button type="button" class="btn btn-link nav-menu" data-bs-toggle="modal" data-bs-target="#aboutModal">About</button>
+      <button type="button" class="btn btn-link nav-menu" data-bs-toggle="modal" data-bs-target="#featuresModal">Features</button>
+    </div>
+  </div>
+</nav>
+
+<main class="container-fluid px-4 py-4">
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for category, message in messages %}
+      <div class="alert alert-{{ category }} alert-dismissible fade show">
+        {{ message }}
+        <button class="btn-close" data-bs-dismiss="alert"></button>
+      </div>
+    {% endfor %}
+  {% endwith %}
+  {% block content %}{% endblock %}
+</main>
+
+<!-- About -->
+<div class="modal fade" id="aboutModal" tabindex="-1" aria-labelledby="aboutModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="aboutModalLabel">{{ app_name }}</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <p class="mb-1"><strong>{{ app_name }}</strong> <span class="text-secondary">v{{ app_version }}</span></p>
+        <p>This SQLite patch manager compares a Patch database with a Base database, identifies schema and data differences, and helps apply controlled database changes.</p>
+        <p class="mb-0">It provides schema validation, CRUD change analysis, configurable patch options, detailed change inspection, and a downloadable merged SQLite database.</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Features -->
+<div class="modal fade" id="featuresModal" tabindex="-1" aria-labelledby="featuresModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="featuresModalLabel">Features</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <ol class="mb-0">
+          <li>Compare Patch and Base SQLite databases.</li>
+          <li>Automatically detect schema mismatches.</li>
+          <li>View detailed schema comparison reports.</li>
+          <li>Detect tables, columns, and row additions, changes, and deletions.</li>
+          <li>Configure structure, row deletion, and row update patch options.</li>
+          <li>Inspect table-level and row-level changes.</li>
+          <li>Filter Tables using change type and wildcard table-name searches.</li>
+          <li>Paginate large Tables lists using configurable page size.</li>
+          <li>Merge selected Patch changes into a copy of the Base database.</li>
+          <li>Download the resulting SQLite database.</li>
+        </ol>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

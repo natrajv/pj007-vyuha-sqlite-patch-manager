@@ -1,0 +1,39 @@
+.stat-card {
+  border-radius: 12px;
+  padding: 18px 22px;
+  background: #fff;
+  border-left: 6px solid;
+  box-shadow: 0 2px 8px rgba(0,0,0,.08);
+}
+.stat-card.added { border-color: #198754; }
+.stat-card.changed { border-color: #ffc107; }
+.stat-card.deleted { border-color: #dc3545; }
+.stat-card .label { color: #666; font-weight: 600; }
+.stat-card .value { font-size: 2rem; font-weight: 700; }
+.changes-grid { max-height: 70vh; overflow: auto; }
+.row-added { background: #e8f7ee; }
+.row-changed { background: #fff8dc; }
+.row-deleted { background: #fdecec; }
+.cell-changed { background: #ffe08a !important; font-weight: 600; }
+.badge-status { min-width: 70px; }
+.status-added { background: #198754; }
+.status-changed { background: #d39e00; }
+.status-deleted { background: #dc3545; }
+.status-unchanged { background: #6c757d; }
+
+.schema-status {
+    display: inline-flex;
+    align-items: center;
+    margin-left: 6px;
+    font-size: 1.2rem;
+    font-weight: 700;
+}
+.schema-ok { color: #198754; }
+.schema-fail { color: #dc3545; }
+
+.app-navbar { padding-top: .45rem; padding-bottom: .45rem; }
+.app-icon { width: 34px; height: 34px; }
+.app-version { font-size: .72em; font-weight: 400; opacity: .85; }
+.nav-menu { color: rgba(255,255,255,.9) !important; text-decoration: none; }
+.nav-menu:hover { color: #fff !important; text-decoration: underline; }
+.schema-status { margin-left: 4px !important; }

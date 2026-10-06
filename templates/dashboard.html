@@ -1,0 +1,372 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <div>
+    <h2 class="mb-1">CRUD Statistics Dashboard</h2>
+    <div class="text-secondary small">
+      Patch SQLite database: <strong>{{ patch_name }}</strong> · Base SQLite database: <strong>{{ base_name }}</strong>
+    </div>
+  </div>
+  <div class="d-flex gap-2 align-items-center">
+    <div class="d-flex align-items-center me-2">
+      <form method="post" action="{{ url_for('compare_schema_route') }}" class="d-inline">
+        <input type="hidden" name="table_filter" value="{{ request.args.get('table_filter', 'all') }}">
+        <input type="hidden" name="table_name_filter" value="{{ request.args.get('table_name_filter', '') }}">
+        <button type="submit" class="btn btn-outline-secondary">Compare Schema</button>
+      </form>
+      <span id="schema-status" class="schema-status ms-1" aria-live="polite">
+        {% if session.get("schema_match") is sameas true %}
+          <span class="schema-ok" title="Schema matches">✓</span>
+        {% elif session.get("schema_match") is sameas false %}
+          <span class="schema-fail" title="Schema mismatch">✗</span>
+        {% endif %}
+      </span>
+    </div>
+    <a href="{{ url_for('changes', table_filter=request.args.get('table_filter', 'all'), table_name_filter=request.args.get('table_name_filter', '')) }}" class="btn btn-outline-primary">Show Changes</a>
+    {% if merged %}<a href="{{ url_for('download') }}" class="btn btn-dark">Download</a>{% endif %}
+  </div>
+</div>
+
+{% if schema_report %}
+<div id="schema-comparison-report" class="card shadow-sm mb-4 border-{{ 'success' if schema_report.matches else 'danger' }}">
+  <div class="card-header fw-bold d-flex justify-content-between align-items-center">
+    <span>Schema Comparison Report</span>
+    <div class="d-flex align-items-center gap-2">
+      {% if schema_report.matches %}
+        <span class="badge text-bg-success">&#10004; Schema Matches</span>
+      {% else %}
+        <span class="badge text-bg-danger">&#10006; Schema Mismatch</span>
+      {% endif %}
+      <button type="button" class="btn btn-sm btn-outline-secondary" id="close-schema-report">
+        Close
+      </button>
+    </div>
+  </div>
+  <div class="card-body">
+    {% if schema_report.error %}
+      <div class="alert alert-danger mb-0">{{ schema_report.error }}</div>
+    {% elif schema_report.matches %}
+      <div class="alert alert-success mb-0">Patch and Base database schemas match. Row data was not considered in this comparison.</div>
+    {% else %}
+      <p class="text-secondary">The following structural differences were found. Row data is not included in this report.</p>
+      {% if schema_report.tables_added %}
+        <h6 class="text-success">Tables in Patch but not in Base</h6>
+        <ul>{% for name in schema_report.tables_added %}<li><code>{{ name }}</code></li>{% endfor %}</ul>
+      {% endif %}
+      {% if schema_report.tables_deleted %}
+        <h6 class="text-danger">Tables in Base but not in Patch</h6>
+        <ul>{% for name in schema_report.tables_deleted %}<li><code>{{ name }}</code></li>{% endfor %}</ul>
+      {% endif %}
+      {% for table in schema_report.table_mismatches %}
+        <div class="mb-3">
+          <h6 class="mb-1">Table: <code>{{ table.name }}</code></h6>
+          <ul class="mb-0">
+            {% for mismatch in table.mismatches %}
+              <li>{{ mismatch.message }}</li>
+            {% endfor %}
+          </ul>
+        </div>
+      {% endfor %}
+    {% endif %}
+  </div>
+</div>
+{% endif %}
+
+<div class="card shadow-sm mb-4">
+  <div class="card-header fw-bold">Patch Options</div>
+  <div class="card-body">
+    <form method="post" action="{{ url_for('merge') }}" id="patch-options-form">
+      <div class="row g-3">
+        <div class="col-md-4">
+          <label class="form-label fw-semibold">Change Base database structure</label>
+          <select class="form-select patch-option" name="change_structure" id="change_structure">
+            <option value="no" {% if not options.change_structure %}selected{% endif %}>No</option>
+            <option value="yes" {% if options.change_structure %}selected{% endif %}>Yes</option>
+          </select>
+          <div class="form-text">Create Patch-only tables and add Patch-only columns.</div>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label fw-semibold">Delete Base database rows</label>
+          <select class="form-select patch-option" name="delete_rows" id="delete_rows">
+            <option value="no" {% if not options.delete_rows %}selected{% endif %}>No</option>
+            <option value="yes" {% if options.delete_rows %}selected{% endif %}>Yes</option>
+          </select>
+          <div class="form-text">Delete Base rows absent from Patch.</div>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label fw-semibold">Update Base database rows</label>
+          <select class="form-select patch-option" name="update_rows" id="update_rows">
+            <option value="no" {% if not options.update_rows %}selected{% endif %}>No</option>
+            <option value="yes" {% if options.update_rows %}selected{% endif %}>Yes</option>
+          </select>
+          <div class="form-text">Update matching Base rows using Patch values.</div>
+        </div>
+        <div class="col-12 d-flex justify-content-end">
+          <button type="button"
+            class="btn btn-warning"
+            id="refresh-dashboard-btn"
+            disabled>
+            Refresh Dashboard
+          </button>
+          <button class="btn btn-success btn-lg px-4">Merge Now</button>
+        </div>
+      </div>
+    </form>
+<form method="post"
+      action="{{ url_for('refresh_dashboard') }}"
+      id="refresh-dashboard-form"
+      class="d-none">
+  <input type="hidden" name="change_structure" id="refresh-change-structure">
+  <input type="hidden" name="delete_rows" id="refresh-delete-rows">
+  <input type="hidden" name="update_rows" id="refresh-update-rows">
+  <input type="hidden" name="table_filter" id="refresh-table-filter-value">
+  <input type="hidden" name="table_name_filter" id="refresh-table-name-filter-value">
+</form>
+
+  </div>
+</div>
+
+<div id="patch-summary-data"
+     data-tables-added="{{ stats.summary.tables_added }}"
+     data-columns-added="{{ stats.summary.columns_added }}"
+     data-rows-added="{{ stats.summary.rows_added }}"
+     data-rows-changed="{{ stats.summary.rows_changed }}"
+     data-rows-deleted="{{ stats.summary.rows_deleted }}">
+</div>
+
+<div class="card shadow-sm mb-4">
+  <div class="card-header fw-bold d-flex justify-content-between align-items-center">
+    <span>Selected Patch Impact</span>
+    <span class="badge text-bg-primary">Will Apply</span>
+  </div>
+  <div class="card-body">
+    <p class="text-secondary">The dashboard below reflects the selected Patch Options. Change an option to immediately preview its impact before clicking <strong>Merge Now</strong>.</p>
+    <div class="table-responsive">
+      <table class="table table-bordered align-middle mb-0">
+        <thead class="table-dark">
+          <tr><th>Object</th><th>Detected</th><th>Selected Option</th><th>Will Apply</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <th>Tables Added</th><td>{{ stats.summary.tables_added }}</td>
+            <td id="tablesOption">Change Structure = {{ 'Yes' if options.change_structure else 'No' }}</td>
+            <td id="tablesWill" class="fw-bold text-success"><span id="will-tables-added">{{ impact.tables_added }}</span></td>
+          </tr>
+          <tr>
+            <th>Columns Added</th><td>{{ stats.summary.columns_added }}</td>
+            <td id="columnsOption">Change Structure = {{ 'Yes' if options.change_structure else 'No' }}</td>
+            <td id="columnsWill" class="fw-bold text-success"><span id="will-columns-added">{{ impact.columns_added }}</span></td>
+          </tr>
+          <tr>
+            <th>Rows Added</th><td>{{ stats.summary.rows_added }}</td>
+            <td><span class="badge text-bg-success">Always Add</span></td>
+            <td class="fw-bold text-success"><span id="will-rows-added">{{ impact.rows_added }}</span></td>
+          </tr>
+          <tr>
+            <th>Rows Changed</th><td>{{ stats.summary.rows_changed }}</td>
+            <td id="updateOption">Update Base rows = {{ 'Yes' if options.update_rows else 'No' }}</td>
+            <td id="updateWill" class="fw-bold"><span id="will-rows-changed">{{ impact.rows_changed }}</span></td>
+          </tr>
+          <tr>
+            <th>Rows Deleted</th><td>{{ stats.summary.rows_deleted }}</td>
+            <td id="deleteOption">Delete Base rows = {{ 'Yes' if options.delete_rows else 'No' }}</td>
+            <td id="deleteWill" class="fw-bold"><span id="will-rows-deleted">{{ impact.rows_deleted }}</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="alert alert-info mt-3 mb-0">
+      <strong>Note:</strong> Base schema changes involving existing column definitions or Base-only tables are detected but are not automatically altered by the current SQLite patch engine.
+    </div>
+  </div>
+</div>
+
+<div class="card shadow-sm">
+  <div class="card-header fw-bold">Detected Patch / Base Differences</div>
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead class="table-dark">
+        <tr>
+          <th>Object</th><th>Added</th><th>Changed</th><th>Deleted</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><th>Tables</th><td class="text-success fw-bold">{{ stats.summary.tables_added }}</td><td class="text-warning fw-bold">{{ stats.summary.tables_changed }}</td><td class="text-danger fw-bold">{{ stats.summary.tables_deleted }}</td></tr>
+        <tr><th>Columns</th><td class="text-success fw-bold">{{ stats.summary.columns_added }}</td><td class="text-warning fw-bold">{{ stats.summary.columns_changed }}</td><td class="text-danger fw-bold">{{ stats.summary.columns_deleted }}</td></tr>
+        <tr><th>Rows</th><td class="text-success fw-bold">{{ stats.summary.rows_added }}</td><td class="text-warning fw-bold">{{ stats.summary.rows_changed }}</td><td class="text-danger fw-bold">{{ stats.summary.rows_deleted }}</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div id="tables-section" class="card shadow-sm mt-4">
+  <div class="card-header">
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+      <span class="fw-bold fs-5">Tables</span>
+      <div class="d-flex align-items-center gap-2 flex-wrap">
+        <label for="table-filter" class="form-label mb-0">Filter by:</label>
+        <select id="table-filter" class="form-select form-select-sm" style="width: 180px;">
+          <option value="all" {% if request.args.get("table_filter", "all") == "all" %}selected{% endif %}>Show All</option>
+          <option value="tables_added" {% if request.args.get("table_filter") == "tables_added" %}selected{% endif %}>Tables Added</option>
+          <option value="columns_added" {% if request.args.get("table_filter") == "columns_added" %}selected{% endif %}>Columns Added</option>
+          <option value="rows_added" {% if request.args.get("table_filter") == "rows_added" %}selected{% endif %}>Rows Added</option>
+          <option value="rows_changed" {% if request.args.get("table_filter") == "rows_changed" %}selected{% endif %}>Rows Changed</option>
+          <option value="rows_deleted" {% if request.args.get("table_filter") == "rows_deleted" %}selected{% endif %}>Rows Deleted</option>
+        </select>
+
+        <label for="table-name-filter" class="form-label mb-0">Text:</label>
+        <input type="text" id="table-name-filter" class="form-control form-control-sm"
+               style="width: 190px;" placeholder="e.g. app_* or *_prod"
+               autocomplete="off" value="{{ request.args.get('table_name_filter', '') }}">
+
+        <button type="button" id="refresh-table-filter" class="btn btn-sm btn-outline-primary"
+                title="Refresh table results" aria-label="Refresh table results">&#x21bb;</button>
+      </div>
+    </div>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-sm table-hover mb-0">
+      <thead><tr><th>Table</th><th>Status</th><th>Added</th><th>Changed</th><th>Deleted</th></tr></thead>
+      <tbody>
+      {% for t in table_rows %}
+        <tr>
+          <td><a href="{{ url_for('changes', table=t.name, table_filter=request.args.get('table_filter', 'all'), table_name_filter=request.args.get('table_name_filter', ''), page=pagination.page) }}">{{ t.name }}</a></td>
+          <td><span class="badge text-bg-{{ 'success' if t.table_status == 'added' else 'danger' if t.table_status == 'deleted' else 'secondary' }}">{{ t.table_status }}</span></td>
+          <td>{{ t.added }}</td><td>{{ t.changed }}</td><td>{{ t.deleted }}</td>
+        </tr>
+      {% else %}
+        <tr><td colspan="5" class="text-center text-secondary py-4">No tables match the selected filter.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="card-footer d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <span class="text-secondary small">
+      Showing {{ pagination.start }} to {{ pagination.end }} of {{ pagination.total }} tables
+      · Page {{ pagination.page }} of {{ pagination.pages }}
+      · Page size {{ pagination.size }}
+    </span>
+    <nav aria-label="Tables pagination">
+      <ul class="pagination pagination-sm mb-0">
+        <li class="page-item {% if not pagination.has_prev %}disabled{% endif %}">
+          <a class="page-link" href="{{ url_for('dashboard', table_filter=request.args.get('table_filter','all'), table_name_filter=request.args.get('table_name_filter',''), page=1) }}#tables-section">First</a>
+        </li>
+        <li class="page-item {% if not pagination.has_prev %}disabled{% endif %}">
+          <a class="page-link" href="{{ url_for('dashboard', table_filter=request.args.get('table_filter','all'), table_name_filter=request.args.get('table_name_filter',''), page=pagination.page-1) }}#tables-section">Previous</a>
+        </li>
+        {% for p in range(1, pagination.pages + 1) %}
+          {% if p <= 7 %}
+          <li class="page-item {% if p == pagination.page %}active{% endif %}">
+            <a class="page-link" href="{{ url_for('dashboard', table_filter=request.args.get('table_filter','all'), table_name_filter=request.args.get('table_name_filter',''), page=p) }}#tables-section">{{ p }}</a>
+          </li>
+          {% endif %}
+        {% endfor %}
+        <li class="page-item {% if not pagination.has_next %}disabled{% endif %}">
+          <a class="page-link" href="{{ url_for('dashboard', table_filter=request.args.get('table_filter','all'), table_name_filter=request.args.get('table_name_filter',''), page=pagination.page+1) }}#tables-section">Next</a>
+        </li>
+        <li class="page-item {% if not pagination.has_next %}disabled{% endif %}">
+          <a class="page-link" href="{{ url_for('dashboard', table_filter=request.args.get('table_filter','all'), table_name_filter=request.args.get('table_name_filter',''), page=pagination.pages) }}#tables-section">Last</a>
+        </li>
+      </ul>
+    </nav>
+  </div>
+</div>
+
+{% if merged %}
+<div class="alert alert-success mt-4">
+  <strong>Merge completed.</strong> Download the patched SQLite database using the Download button above.
+</div>
+{% endif %}
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const closeButton = document.getElementById("close-schema-report");
+    const report = document.getElementById("schema-comparison-report");
+
+    if (closeButton && report) {
+        closeButton.addEventListener("click", function () {
+            report.style.display = "none";
+        });
+    }
+});
+</script>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+    const structure = document.getElementById("change_structure");
+    const deleteRows = document.getElementById("delete_rows");
+    const updateRows = document.getElementById("update_rows");
+    const refreshButton = document.getElementById("refresh-dashboard-btn");
+    const refreshForm = document.getElementById("refresh-dashboard-form");
+
+    // Patch Options: changing an option enables the explicit dashboard refresh.
+    [structure, deleteRows, updateRows].forEach(function (el) {
+        if (el && refreshButton) {
+            el.addEventListener("change", function () {
+                refreshButton.disabled = false;
+            });
+        }
+    });
+
+    if (refreshButton && refreshForm) {
+        refreshButton.addEventListener("click", function () {
+            const refreshStructure = document.getElementById("refresh-change-structure");
+            const refreshDelete = document.getElementById("refresh-delete-rows");
+            const refreshUpdate = document.getElementById("refresh-update-rows");
+            const refreshTableFilter = document.getElementById("refresh-table-filter-value");
+            const refreshTableNameFilter = document.getElementById("refresh-table-name-filter-value");
+            const tableFilter = document.getElementById("table-filter");
+            const tableNameFilter = document.getElementById("table-name-filter");
+
+            if (refreshStructure) refreshStructure.value = structure ? structure.value : "no";
+            if (refreshDelete) refreshDelete.value = deleteRows ? deleteRows.value : "no";
+            if (refreshUpdate) refreshUpdate.value = updateRows ? updateRows.value : "no";
+            if (refreshTableFilter) refreshTableFilter.value = tableFilter ? tableFilter.value : "all";
+            if (refreshTableNameFilter) refreshTableNameFilter.value =
+                tableNameFilter ? tableNameFilter.value.trim() : "";
+
+            refreshButton.disabled = true;
+            refreshForm.submit();
+        });
+    }
+
+    // Tables filter: this is server-side, so navigate with the selected
+    // filter values and reset pagination to page 1.
+    const tableFilter = document.getElementById("table-filter");
+    const tableNameFilter = document.getElementById("table-name-filter");
+    const refreshTableFilter = document.getElementById("refresh-table-filter");
+
+    function applyTableFilters() {
+        const url = new URL(window.location.href);
+        url.searchParams.set("table_filter", tableFilter ? tableFilter.value : "all");
+
+        const pattern = tableNameFilter ? tableNameFilter.value.trim() : "";
+        if (pattern) {
+            url.searchParams.set("table_name_filter", pattern);
+        } else {
+            url.searchParams.delete("table_name_filter");
+        }
+
+        url.searchParams.set("page", "1");
+        window.location.href = url.toString() + "#tables-section";
+    }
+
+    if (refreshTableFilter) {
+        refreshTableFilter.addEventListener("click", applyTableFilters);
+    }
+
+    // Allow Enter in the text filter as a convenient alternative to clicking Refresh.
+    if (tableNameFilter) {
+        tableNameFilter.addEventListener("keydown", function (event) {
+            if (event.key === "Enter") {
+                event.preventDefault();
+                applyTableFilters();
+            }
+        });
+    }
+})();
+</script>
+{% endblock %}
