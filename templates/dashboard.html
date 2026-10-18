@@ -4,7 +4,7 @@
   <div>
     <h2 class="mb-1">CRUD Statistics Dashboard</h2>
     <div class="text-secondary small">
-      Patch SQLite database: <strong>{{ patch_name }}</strong> · Base SQLite database: <strong>{{ base_name }}</strong>
+      Patch SQLite database/Excel: <strong>{{ patch_name }}</strong> · Base SQLite database: <strong>{{ base_name }}</strong>
     </div>
   </div>
   <div class="d-flex gap-2 align-items-center">
@@ -23,6 +23,7 @@
       </span>
     </div>
     <a href="{{ url_for('changes', table_filter=request.args.get('table_filter', 'all'), table_name_filter=request.args.get('table_name_filter', '')) }}" class="btn btn-outline-primary">Show Changes</a>
+    <a href="{{ url_for('preview') }}" class="btn btn-outline-primary">Preview Tables</a>
     {% if merged %}<a href="{{ url_for('download') }}" class="btn btn-dark">Download</a>{% endif %}
   </div>
 </div>

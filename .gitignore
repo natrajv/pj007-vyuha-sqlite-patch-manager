@@ -1,3 +1,10 @@
+# Vyuha specific
+.vyuha*
+.arch/
+.versions/
+.rback/
+workspace/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
@@ -8,7 +15,9 @@ __pycache__/
 
 # Distribution / packaging
 .Python
+python/
 build/
+databases/
 develop-eggs/
 dist/
 downloads/

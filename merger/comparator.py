@@ -136,7 +136,9 @@ def compare_schema(source_path, target_path):
         base_tables = set(tables(t))
 
         tables_added = sorted(patch_tables - base_tables)
-        tables_deleted = sorted(base_tables - patch_tables)
+        # Base-only tables are retained by the patch engine and are outside
+        # the patch scope, so do not report them as deleted.
+        tables_deleted = []
         table_mismatches = []
 
         for name in sorted(patch_tables & base_tables):
@@ -204,7 +206,8 @@ def compare_databases(source_path, target_path):
         tt = set(tables(t))
 
         table_added = sorted(st - tt)
-        table_deleted = sorted(tt - st)
+        # Tables absent from Patch are intentionally ignored, not deletions.
+        table_deleted = []
         common = sorted(st & tt)
 
         table_details = []
@@ -349,4 +352,26 @@ def get_table_changes(source_path, target_path, table):
             "rows": output,
             "status": "common",
             "message": f"Row identity: {', '.join(key_cols)}"
+        }
+
+
+def get_table_preview(database_path, table, page=1, page_size=100):
+    """Return a bounded, read-only page of rows from one database table."""
+    with connect(database_path) as conn:
+        if table not in tables(conn):
+            raise ValueError("Unknown table")
+        table_columns = columns(conn, table)
+        total = conn.execute(
+            f"SELECT COUNT(*) FROM {quote_ident(table)}"
+        ).fetchone()[0]
+        rows = conn.execute(
+            f"SELECT * FROM {quote_ident(table)} LIMIT ? OFFSET ?",
+            (page_size, (page - 1) * page_size),
+        ).fetchall()
+        return {
+            "columns": [column[1] for column in table_columns],
+            "rows": [list(row) for row in rows],
+            "total": total,
+            "page": page,
+            "page_size": page_size,
         }

@@ -11,20 +11,20 @@
 
         <form method="post" action="{{ url_for('upload') }}" enctype="multipart/form-data">
           <div class="mb-4">
-            <label class="form-label fw-semibold">Patch SQLite database</label>
-            <input class="form-control" type="file" name="source_db" accept=".db,.sqlite,.sqlite3" required>
+            <label class="form-label fw-semibold">Base SQLite database</label>
+            <input class="form-control" type="file" name="target_db" accept=".db,.sqlite,.sqlite3" required>
           </div>
 
           <div class="mb-4">
-            <label class="form-label fw-semibold">Base SQLite database</label>
-            <input class="form-control" type="file" name="target_db" accept=".db,.sqlite,.sqlite3" required>
+            <label class="form-label fw-semibold">Patch SQLite database/Excel</label>
+            <input class="form-control" type="file" name="source_db" accept=".db,.sqlite,.sqlite3,.xlsx,.xlsm" required>
           </div>
 
           <button class="btn btn-primary btn-lg w-100">Compare Databases</button>
         </form>
 
         <div class="alert alert-info mt-4 mb-0">
-          <strong>Patch model:</strong> Patch SQLite database contains the proposed changes;
+          <strong>Patch model:</strong> Patch SQLite database or matching Excel sheets contain the proposed changes;
           Base SQLite database is copied first and then patched according to Patch Options.
         </div>
       </div>

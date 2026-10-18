@@ -1,0 +1,246 @@
+Note: All short codes for practice, testing to be considered as Snippets/ Snips
+*=====*
+*--Index--*
+@01. Demo project setup basic steps
+@02. GitHub initiation
+@03. GitHub Project/ Snip Setup steps
+@04. UV init project 
+@05. Start VSCode
+@06. Use Hardlink, if GitHub not needed
+@07. Basic Git Commands 101
+@08. Markdown 101
+@10. ".gitignore" settings for "FreeFileSync"
+
+*-----*
+*--@01. Demo project setup basic steps--*
+*--Configuration KV
+Project Name: SN027-Nat-HR 
+Project Objective: Demo of import a Excel sheet into SQLite table
+*--Steps
+*--Home Directories
+01-0: PS> md d:\ws\sn037, md d:\ws\sn037\{.arch,.staging,.sync}
+01-1: PS> cd D:\Workspace\snips
+01-2: {Right-click -> New+ -> sn999-hello-python}
+01-3: {Rename casesheet, timestamp}
+*--FreeFileSync
+02-0: {Open FreeFileSync}
+02-1: {Setup local pair} 
+{Click "New"}
+{Left1: D:\ws\pj009, Right1: D:\Workspace\projects\pj009-zentra-todo\ws}{Click "+" to add pair}
+{Left2: D:\Workspace\projects\pj009-zentra-todo, Right2: D:\01-nats\08-repo\01-clouddrive\OneDrive\01-nats\06-projects\pj009-zentra-todo} {Click "+" to add pair}
+{Menu:Action -> Synchronisation Settings}{Folder pair: All Folder Pairs, Common settings: Update}
+{Click "Save", File name: D:\ws\sn037\.sync\01-filesync-pj009-zentra-todo}
+03-0: {Login to GitHub. User: natrajv@yahoo.com}
+*--Git
+03-1: {GitHub project created, SSH: git@github.com:natrajv/sn037-nat-hr.git}
+03-2: PS> cd d:\ws
+03-3: PS> git clone git@github.com:natrajv/sn037-nat-hr.git sn037
+*--uv
+04-0: PS> cd d:\ws\sn037
+04-1: PS> uv init
+04-2: {Append "FreeFileSync" section from "@10 of this file" into ".gitignore"}
+04-3: PS> uv sync
+04-4: PS> git add .
+04-5: PS> git commit -m "Project SN037-Nat-HR is initiated"
+04-6: PS> git push 
+*--VSCode development start
+05-0: PS> code . main.py
+
+*-----*
+*--@02. GitHub initiation--*
+*--Directory Structure of Project/ Snip--*
+1. Snip Name: SN037-Nat-HR for Demo of Python Webapp CRUD on Nat-HR (pno, name, unit)
+2. Local Code Home: "D:\ws\sn037" (One VSCode/ Project Code files)(Created from GitHub repo)
+3. Local Snip Home: "D:\Workspace\snips\sn037-nat-hr-20260922" (Created using Right-click->"New+"->"sn999-hello-python" template)
+4. Cloud Snip Home: "<...>\OneDrive\01-nats\09-snips\sn037-nat-hr-20260922"
+*--Sync File settings
+5.0 Sync file (FreeFileSync tool): "D:\ws\sn037\.sync\01-filesync-sn037-nat-hr-20260926_1037.ffs_gui"
+5.1 Local Pair (Code): "D:\ws\sn037" -> "D:\Workspace\snips\sn037-nat-hr-20260922\ws"
+5.2 Cloud Pair (All): "D:\Workspace\snips\sn037-nat-hr-20260922" -> "D:\01-nats\08-repo\01-clouddrive\OneDrive\01-nats\09-snips\sn037-nat-hr-20260922"
+5.3 Save & Run FreeFileSync of "D:\ws\sn037\.sync\01-filesync-sn037-nat-hr.ffs_gui"
+*-----*
+
+*--@03. GitHub Project/ Snip Setup steps--*
+1. Create new repo on GitHub with options of MIT License, README.md
+> Login to GitHub. User: natrajv@yahoo.com
+> GitHub project created on portal. SSH: git@github.com:natrajv/sn025-avn-pcf.git
+
+2. Create parent snip directory on OneDrive location: "D:\Workspace\snips\sn025-avn-pcf"
+> Using right-click 'New+' created snip directory 'sn025-avn-pcf'
+
+3. Clone Git snip to local 
+PS> D:\ws> git clone git@github.com:natrajv/sn025-avn-pcf.git sn025
+> Git repo cloned to local working directory as 'd:\ws\sn025'
+*-----*
+*--@04. UV init project--*
+PS> cd d:\ws\cwd #Test, Demo, Temp projets home directory
+PS> md sn037 # Create demo project home directory
+PS> cd sn037
+PS> uv init #Create pyproject.toml, main.py
+PS> uv sync #Create .venv
+PS> uv add pandas openpyxl #Add packages as required
+*-----*
+*--@05. Start VSCode--*
+PS> cd d:\ws\sn025
+PS> code .
+*-----*
+
+*--@06. Use Hardlink, if GitHub not needed--*
+>> Default directory for snips on development
+"C:\Workspace\snips\sn001-hello-python"
+
+>> Create hardlink as shortcut for Python IDE workspace
+*Powershell*
+"PS> new-item -itemtype junction -path 'd:\ws\sn001' -value 'D:\Workspace\snips\sn001-hello-python\ws'"
+
+*WSL Bash*
+"$> sudo ln -s /mnt/d/ws/sn031 ~/ws/sn031"
+
+>> After development, snips to be moved under "...\onedrive\01-nats\09-snips\08-repo-snips\sn001-hello-python"
+
+>> Remove hardlink 
+PS> remove-item -path 'd:\ws\sn001'
+
+*--@07. Basic Git commands 101 [01]--*
+# Clone an existing remote repository
+PS> git clone git@github.com:natrajv/sn025-avn-pcf.git sn025
+# Check modified, staged, and untracked files
+PS> git status
+# Stage all changed files
+PS> git add .
+# Unstage all staged files
+PS> git restore --staged .
+# View project's commit history 
+PS> git log --oneline
+# See exact changes made to unstaged files
+PS> git diff
+# The standard add → commit → push loop to save progress
+# Stage changes for a specific file
+PS> git add <filename>
+# Stage all modified and new files
+PS> git add .
+# Save staged snapshot with a message
+PS> git commit -m "Brief explanation of changes"
+--
+# Full sync by running these two commands in sequence:
+# Update your local files with code your teammates have pushed
+PS> git pull --rebase
+# Upload your local commits to the remote server
+PS> git push
+--Versioning
+--Basic steps
+PS> git add .
+PS> git commit -m "Finish feature for release"
+PS> git tag -a v1.0.0 -m "Release version 1.0.0"
+PS> git push origin v1.0.0
+--
+# Git tags used for version management
+# Create Tag 
+PS> git tag v1.0.0
+# Create an Annotated Tag (Recommended)
+PS> git tag -a v1.0.0 -m "Release version 1.0.0"
+# By default, the git push command does not send tags to remote servers. You must explicitly push them
+PS> git push origin v1.0.0
+# List all tags in your repository
+PS> git tag
+# Search for specific versions (e.g., all 1.x versions)
+PS> git tag -l "v1.*"
+# View details of a specific tag (shows the author, date, and commit information)
+PS> git show v1.0.0
+# Tag a past commit (if you forgot to tag it earlier, grab the commit hash from git log)
+PS> git tag -a v1.0.0 a1b2c3d -m "Release version 1.0.0"
+# Interrupt to stop lengthy display of information
+PS> q #Press-"q" to Quit and exit back to the terminal prompt.
+# Untracking folders, files 
+PS> git rm --cached -r .arch .versions .rback
+PS> git commit -m "Untracked folders"
+PS> git push
+
+*-----*
+*--@08. Markdown 101--*
+# Heading
+1. Title section (#)
+2. Main section (##)
+3. Sub section (###)
+Example:
+# My Title
+## My Main section
+> Content
+> Content
+* Content line
+* Content line
+### My Sub section
+> Content
+--
+# Collapsible Sections
+<details>
+<summary>Click to expand section</summary>
+</details>
+# Bold
+**My bold text**
+# Italics
+*My italic text*
+# List
+* Item1
+* Item2
+* Item3
+# Code
+`Inline code` (Single backtick)
+```Multi
+line``` (Triple backtick)
+# Blockquotes
+> My block quote
+# Link
+[Google](https://google.com)
+*-----*
+
+*--@10. ".gitignore" settings for "FreeFileSync" [02]--*
+# FreeFileSync configuration files
+*.ffs_gui
+*.ffs_batch
+*.ffs_real
+
+# FreeFileSync database files (created with "Database" comparison)
+*.ffs_db
+*.ffs_db-*
+
+# FreeFileSync log files
+*.log
+FreeFileSync*.log
+ffs_*.log
+
+# Temporary / lock files
+*.tmp
+*.temp
+~$*
+*.lock
+
+# Windows system files
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+System Volume Information/
+RECYCLER/
+RECYCLED/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Linux
+*~
+.directory
+*-----*
+
+*==References==*
+[01] Basic Git commands, Google AI. https://share.google/aimode/ynIuRFASP6ehWLER4, 26 Sep 2026. 
+[02] .gitignore settings for FreeFileSync, Grok. https://grok.com/share/bGVnYWN5_e671fb0f-8bc8-43ca-a3af-f690ac052129, 26 Sep 2026. 
+[03] Markdown 101, Google AI. https://share.google/aimode/KB09QA4Tao4EZhG7N, 26 Sep 2026.
+
+*==Version==**
+Version: v1.4.1
+CTD: 20241213_0755
+LUD: 20261018_0523

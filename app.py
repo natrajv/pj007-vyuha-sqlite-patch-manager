@@ -5,10 +5,16 @@ import shutil
 import json
 import math
 import fnmatch
+from datetime import date, datetime, time
 from pathlib import Path
 from flask import Flask, render_template, request, redirect, url_for, send_file, session, flash
+from werkzeug.utils import secure_filename
+from openpyxl import load_workbook
 
-from merger.comparator import compare_databases, compare_schema, get_table_changes
+from merger.comparator import (
+    compare_databases, compare_schema, get_table_changes, get_table_preview,
+    quote_ident, tables,
+)
 from merger.merger import merge_databases
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -41,7 +47,81 @@ def db_paths():
     if not sid:
         return None, None, None
     d = WORKSPACE / sid
-    return d, d / "source.sqlite", d / "target.sqlite"
+    return d, d / session.get("patch_db_file", "source.sqlite"), d / "target.sqlite"
+
+
+def create_patch_from_excel(workbook_path, base_path, output_path):
+    """Build a patch database from workbook sheets matching Base tables."""
+    with sqlite3.connect(base_path) as base:
+        base_tables = {
+            name.casefold(): name
+            for (name,) in base.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"
+            )
+        }
+        table_columns = {}
+        for name in base_tables.values():
+            table_columns[name] = base.execute(
+                f'PRAGMA table_info("{name.replace(chr(34), chr(34) * 2)}")'
+            ).fetchall()
+
+    workbook = load_workbook(workbook_path, read_only=True, data_only=True)
+    matches = []
+    matched_tables = set()
+    try:
+        for sheet in workbook.worksheets:
+            table_name = base_tables.get(sheet.title.casefold())
+            if not table_name or table_name in matched_tables:
+                continue
+            rows = sheet.iter_rows(values_only=True)
+            headers = next(rows, None)
+            if not headers:
+                continue
+            header_map = {}
+            for index, header in enumerate(headers):
+                if header is not None and str(header).strip():
+                    header_map.setdefault(str(header).strip().casefold(), index)
+            base_cols = table_columns[table_name]
+            selected = [
+                (column, header_map[column[1].casefold()])
+                for column in base_cols if column[1].casefold() in header_map
+            ]
+            if not selected:
+                continue
+            sheet_rows = []
+            for row in rows:
+                values = [row[index] if index < len(row) else None for _, index in selected]
+                if any(value is not None for value in values):
+                    sheet_rows.append([
+                        value.isoformat() if isinstance(value, (date, datetime, time)) else
+                        int(value) if isinstance(value, bool) else value
+                        for value in values
+                    ])
+            matches.append((table_name, selected, sheet_rows))
+            matched_tables.add(table_name)
+    finally:
+        workbook.close()
+
+    if not matches:
+        raise ValueError("The workbook must contain a sheet named for a Base table and at least one matching column.")
+
+    with sqlite3.connect(output_path) as patch:
+        for table_name, selected, rows in matches:
+            definitions = [
+                f'{quote_ident(column[1])} {column[2] or ""}'.rstrip()
+                for column, _ in selected
+            ]
+            selected_pk = [(column[5], column[1]) for column, _ in selected if column[5]]
+            all_pk = [column[1] for column in table_columns[table_name] if column[5]]
+            if selected_pk and len(selected_pk) == len(all_pk):
+                pk_names = [name for _, name in sorted(selected_pk)]
+                definitions.append(f'PRIMARY KEY ({", ".join(quote_ident(name) for name in pk_names)})')
+            patch.execute(f'CREATE TABLE {quote_ident(table_name)} ({", ".join(definitions)})')
+            if rows:
+                placeholders = ",".join("?" for _ in selected)
+                patch.executemany(
+                    f'INSERT INTO {quote_ident(table_name)} VALUES ({placeholders})', rows
+                )
 
 
 @app.route("/")
@@ -56,11 +136,12 @@ def upload():
     target = request.files.get("target_db")
 
     if not source or not target or not source.filename or not target.filename:
-        flash("Please select both Patch and Base SQLite databases.", "danger")
+        flash("Please select both a Patch SQLite/Excel file and a Base SQLite database.", "danger")
         return redirect(url_for("index"))
 
-    if not source.filename.lower().endswith((".db", ".sqlite", ".sqlite3")):
-        flash("Patch SQLite database must be a SQLite database file.", "danger")
+    is_excel = source.filename.lower().endswith((".xlsx", ".xlsm"))
+    if not is_excel and not source.filename.lower().endswith((".db", ".sqlite", ".sqlite3")):
+        flash("Patch file must be a SQLite database or Excel workbook (.xlsx/.xlsm).", "danger")
         return redirect(url_for("index"))
 
     if not target.filename.lower().endswith((".db", ".sqlite", ".sqlite3")):
@@ -73,10 +154,17 @@ def upload():
 
     source_path = d / "source.sqlite"
     target_path = d / "target.sqlite"
-    source.save(source_path)
+    source_upload_path = d / secure_filename(source.filename)
     target.save(target_path)
 
     try:
+        source.save(source_upload_path)
+        if is_excel:
+            generated_name = f"{Path(secure_filename(source.filename)).stem}.sqlite"
+            source_path = d / generated_name
+            create_patch_from_excel(source_upload_path, target_path, source_path)
+        else:
+            source_upload_path.replace(source_path)
         stats = compare_databases(source_path, target_path)
         schema_result = compare_schema(source_path, target_path)
     except Exception as exc:
@@ -89,6 +177,7 @@ def upload():
     session["schema_match"] = schema_result.get("matches", False)
     session["schema_report"] = None
     session["patch_name"] = source.filename
+    session["patch_db_file"] = source_path.name
     session["base_name"] = target.filename
     session.pop("merged", None)
     return redirect(url_for("dashboard"))
@@ -127,11 +216,17 @@ def dashboard():
     stats = session.get("stats") or compare_databases(source, target)
     session["stats"] = stats
 
-    options = session.get("patch_options", {
+    # A browser may still have an older session cookie that predates one or
+    # more patch options. Merge stored values over defaults so dashboard
+    # rendering remains compatible with those sessions.
+    options = {
         "change_structure": False,
         "delete_rows": False,
         "update_rows": False,
-    })
+    }
+    stored_options = session.get("patch_options")
+    if isinstance(stored_options, dict):
+        options.update(stored_options)
 
     summary = stats["summary"]
     impact = {
@@ -229,6 +324,68 @@ def changes():
     )
 
 
+@app.route("/preview")
+def preview():
+    d, source, target = db_paths()
+    if not source or not source.exists() or not target.exists():
+        return redirect(url_for("index"))
+
+    database = request.args.get("database", "patch")
+    merged_path = d / "merged.sqlite"
+    if database not in {"patch", "base", "merged"}:
+        database = "patch"
+    if database == "merged" and not merged_path.exists():
+        flash("Run Merge Now before previewing the Merged database.", "warning")
+        return redirect(url_for("preview", database="base"))
+    database_path = {
+        "patch": source,
+        "base": target,
+        "merged": merged_path,
+    }[database]
+    try:
+        page = max(1, int(request.args.get("page", "1")))
+    except ValueError:
+        page = 1
+    connection = sqlite3.connect(database_path)
+    try:
+        table_names = tables(connection)
+    finally:
+        connection.close()
+    selected = request.args.get("table")
+    if selected not in table_names:
+        selected = table_names[0] if table_names else None
+
+    page_size = 100
+    total = 0
+    detail = None
+    if selected:
+        detail = get_table_preview(database_path, selected, page=page, page_size=page_size)
+        total = detail["total"]
+        page_count = max(1, math.ceil(total / page_size))
+        page = min(page, page_count)
+        if detail["page"] != page:
+            detail = get_table_preview(database_path, selected, page=page, page_size=page_size)
+    else:
+        page_count = 1
+
+    return render_template(
+        "preview.html",
+        database=database,
+        database_name={
+            "patch": session.get("patch_name"),
+            "base": session.get("base_name"),
+            "merged": "merged.sqlite",
+        }[database],
+        tables=table_names,
+        selected=selected,
+        detail=detail,
+        page=page,
+        page_count=page_count,
+        page_size=page_size,
+        total=total,
+    )
+
+
 @app.post("/merge")
 def merge():
     d, source, target = db_paths()
@@ -248,7 +405,10 @@ def merge():
     merged = d / "merged.sqlite"
     try:
         merge_databases(source, target, merged, change_structure=change_structure, delete_rows=delete_rows, update_rows=update_rows)
-        stats = compare_databases(source, merged)
+        # Keep the dashboard's detected differences anchored to the original
+        # Patch/Base pair. Comparing against merged.sqlite would consume the
+        # differences just applied and make the Added counts drop to zero.
+        stats = compare_databases(source, target)
         session["stats"] = stats
         session["merged"] = True
         flash("Merge completed. The original Patch and Base databases were not modified.", "success")
